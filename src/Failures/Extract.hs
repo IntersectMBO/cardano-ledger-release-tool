@@ -12,7 +12,7 @@ import Data.Traversable (for)
 import Failures.LogResults
 import Failures.Parse
 import Options.Applicative hiding (Failure)
-import System.Directory (doesDirectoryExist, doesFileExist)
+import System.Directory (doesDirectoryExist, doesFileExist, removePathForcibly)
 import System.Exit (die)
 import System.FilePath (makeRelative, takeDirectory, (<.>), (</>))
 import System.IO (hPutStrLn, stderr)
@@ -95,7 +95,7 @@ extract Options {..} ExtractOptions {..} = do
 
   let projectRoot = (takeDirectory . takeDirectory . takeDirectory) planLocation
 
-  (parseErrors, logSuiteRuns) <-
+  (parseErrors, suiteRuns) <-
     fmap unzip . for suiteLogs $ \(suiteName, file) -> do
       let fileRelative = makeRelative projectRoot file
       trace 2 $ "Examining " <> fileRelative
@@ -107,5 +107,8 @@ extract Options {..} ExtractOptions {..} = do
       trace 0 $ "Warning: " <> show err <> " in " <> fileRelative
 
   let PkgId _ (Ver logCompilerVersion) = pjCompilerId plan
+      logSuiteRuns = filter (not . null . suiteFailures) suiteRuns
 
-  JSON.encodeFile optOutput LogResults {..}
+  if null logSuiteRuns
+    then removePathForcibly optOutput
+    else JSON.encodeFile optOutput LogResults {..}
