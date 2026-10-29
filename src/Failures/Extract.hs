@@ -7,13 +7,15 @@ module Failures.Extract (extractCmd) where
 import Cabal.Plan
 import Common.Options (Options (..), options)
 import Control.Monad (filterM, guard, unless)
+import Data.Foldable (for_)
+import Data.Strict.Either (partitionEithers)
 import Data.Traversable (for)
 import Failures.LogResults
 import Failures.Parse
 import Options.Applicative hiding (Failure)
 import System.Directory (doesDirectoryExist, doesFileExist)
 import System.Exit (die)
-import System.FilePath ((<.>), (</>))
+import System.FilePath (makeRelative, takeDirectory, (<.>), (</>))
 import System.IO (hPutStrLn, stderr)
 
 import qualified Data.Aeson as JSON
@@ -92,11 +94,16 @@ extract Options {..} ExtractOptions {..} = do
 
   trace 1 $ show (length suiteLogs) <> " logs found"
 
+  let projectRoot = (takeDirectory . takeDirectory . takeDirectory) planLocation
+
   logSuiteRuns <-
     for suiteLogs $ \(suiteName, file) -> do
-      suiteFailures <- do
-        trace 2 $ "Examining " <> file
-        parseLog file
+      (parseErrors, suiteFailures) <-
+        partitionEithers <$> do
+          trace 2 $ "Examining " <> file
+          parseLog file
+      for_ parseErrors $ \err -> do
+        trace 0 $ "Warning: " <> show err <> " in " <> makeRelative projectRoot file
       pure SuiteRun {..}
 
   let PkgId _ (Ver logCompilerVersion) = pjCompilerId plan
