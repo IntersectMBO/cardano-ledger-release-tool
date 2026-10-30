@@ -54,7 +54,11 @@ reproInfo =
         <$ "To rerun use: "
         <*> (option "--match" <* " \"" <*> text <* "\" ")
         <*> (option "--seed" <* " " <*> text)
+    , SelectorAndSeed
+        <$ "Use \""
+        <*> (option "--pattern" <* " '" <*> text <* "' ")
+        <*> (option "--hedgehog-replay" <* " '" <*> text <* "'\"")
     ]
  where
-  option name = Option . T.pack <$> name
+  option name = Option . T.pack <$> string name
   text = T.pack <$> few anySym
