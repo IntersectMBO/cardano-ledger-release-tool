@@ -9,14 +9,15 @@ import Common.Options (Options (..), options)
 import Control.Monad (filterM, guard, unless)
 import Data.Foldable (for_)
 import Data.Strict.Either (partitionEithers)
-import Data.Traversable (for)
+import Data.Time (diffUTCTime, getCurrentTime)
 import Failures.LogResults
 import Failures.Parse
 import Options.Applicative hiding (Failure)
+import Say (sayErrString)
 import System.Directory (doesDirectoryExist, doesFileExist, removePathForcibly)
 import System.Exit (die)
 import System.FilePath (makeRelative, takeDirectory, (<.>), (</>))
-import System.IO (hPutStrLn, stderr)
+import UnliftIO.Async (pooledForConcurrently)
 
 import qualified Data.Aeson as JSON
 import qualified Data.Map.Strict as Map
@@ -57,7 +58,7 @@ extractCmd = do
 extract :: Options -> ExtractOptions -> IO ()
 extract Options {..} ExtractOptions {..} = do
   let
-    trace n = if optVerbosity >= n then hPutStrLn stderr else const mempty
+    trace n = if optVerbosity >= n then sayErrString else const mempty
 
   -- Avoid confusing behaviour from `findProjectRoot`
   doesDirectoryExist optProjectDir
@@ -97,13 +98,18 @@ extract Options {..} ExtractOptions {..} = do
   let projectRoot = (takeDirectory . takeDirectory . takeDirectory) planLocation
 
   suiteRuns <-
-    for suiteLogs $ \(suiteName, file) -> do
+    pooledForConcurrently suiteLogs $ \(suiteName, file) -> do
+      let fileRelative = makeRelative projectRoot file
       (parseErrors, suiteFailures) <-
         partitionEithers <$> do
-          trace 2 $ "Examining " <> file
-          parseLog file
+          trace 2 $ "Examining " <> fileRelative
+          start <- getCurrentTime
+          result <- parseLog fileRelative
+          end <- getCurrentTime
+          trace 2 $ "Finished  " <> fileRelative <> " (" <> show (end `diffUTCTime` start) <> ")"
+          pure result
       for_ parseErrors $ \err -> do
-        trace 0 $ "Warning: " <> show err <> " in " <> makeRelative projectRoot file
+        trace 0 $ "Warning: " <> show err <> " in " <> fileRelative
       pure SuiteRun {..}
 
   let PkgId _ (Ver logCompilerVersion) = pjCompilerId plan
