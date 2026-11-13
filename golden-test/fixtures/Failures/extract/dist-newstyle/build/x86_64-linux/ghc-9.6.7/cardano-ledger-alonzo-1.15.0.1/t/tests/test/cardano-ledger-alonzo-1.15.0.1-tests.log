@@ -78,6 +78,7 @@ Failures:
            atAuxData = SNothing}
        
        [0;91mDeliberate failure[0m
+  Use -p 'Orphaned Match' to rerun this test only
 
   To rerun use: --match "/Alonzo/Imp/AlonzoImpSpec/Protocol Version 6/BBODY/PlutusV1/enforces ppMaxBlockExUnits/" --seed 2016897289
 

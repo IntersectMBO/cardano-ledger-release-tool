@@ -1,0 +1,2 @@
+Warning: OrphanedSelector (Option {optionName = "-p", optionValue = "Orphaned Match"}) in dist-newstyle/build/x86_64-linux/ghc-9.6.7/cardano-ledger-alonzo-1.15.0.1/t/tests/test/cardano-ledger-alonzo-1.15.0.1-tests.log
+Warning: OrphanedSelector (Option {optionName = "-p", optionValue = "/goldenHeader/&&$0==\"Cardano Ledger Tests.Test.Cardano.Chain.Block.CBOR.goldenHeader\""}) in dist-newstyle/build/x86_64-linux/ghc-9.6.7/cardano-ledger-byron-1.3.0.0/t/tests/test/cardano-ledger-byron-1.3.0.0-tests.log

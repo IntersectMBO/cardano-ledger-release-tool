@@ -1,37 +1,45 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Failures.Parse (parseLog) where
 
 import Control.Exception (evaluate)
 import Data.Maybe (mapMaybe)
+import Data.Strict.Either (Either (..))
 import Data.Text (Text)
 import Failures.LogResults
+import GHC.Generics (Generic)
 import Text.Regex.Applicative
+import Prelude hiding (Either (..))
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-parseLog :: FilePath -> IO [Failure]
+data OrphanedItem
+  = OrphanedSelector !Option
+  | OrphanedSeed !Option
+  deriving (Eq, Ord, Show, Generic)
+
+parseLog :: FilePath -> IO [Either OrphanedItem Failure]
 parseLog fp = do
   infos <- mapMaybe findInfo . T.lines <$> T.readFile fp
   evaluate $ collectFailures infos
 
-collectFailures :: [ReproInfo] -> [Failure]
+collectFailures :: [ReproInfo] -> [Either OrphanedItem Failure]
 collectFailures = go
  where
   go (Seed seed : Selector sel : infs) =
-    Failure sel seed `cons` go infs
+    Right (Failure sel seed) `cons` go infs
   go (Selector sel : Seed seed : infs) =
-    Failure sel seed `cons` go infs
+    Right (Failure sel seed) `cons` go infs
   go (SelectorAndSeed sel seed : infs) =
-    Failure sel seed `cons` go infs
+    Right (Failure sel seed) `cons` go infs
   go (Selector sel : infs) =
-    Failure sel def `cons` go infs
+    Left (OrphanedSelector sel) `cons` go infs
   go (Seed seed : infs) =
-    Failure def seed `cons` go infs
+    Left (OrphanedSeed seed) `cons` go infs
   go [] = []
-  def = Option "" ""
   -- We need the result to be strict because we may be parsing a large number of large files
   -- and laziness would retain the `Text` content of the files instead of just the summaries.
   !x `cons` !xs = let !ys = x : xs in ys
@@ -54,7 +62,11 @@ reproInfo =
         <$ "To rerun use: "
         <*> (option "--match" <* " \"" <*> text <* "\" ")
         <*> (option "--seed" <* " " <*> text)
+    , SelectorAndSeed
+        <$ "Use \""
+        <*> (option "--pattern" <* " '" <*> text <* "' ")
+        <*> (option "--hedgehog-replay" <* " '" <*> text <* "'\"")
     ]
  where
-  option name = Option . T.pack <$> name
+  option name = Option . T.pack <$> string name
   text = T.pack <$> few anySym
