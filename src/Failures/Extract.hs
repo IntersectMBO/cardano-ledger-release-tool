@@ -8,14 +8,14 @@ import Cabal.Plan
 import Common.Options (Options (..), options)
 import Control.Monad (filterM, guard, unless)
 import Data.Foldable (for_)
-import Data.Traversable (for)
 import Failures.LogResults
 import Failures.Parse
 import Options.Applicative hiding (Failure)
+import Say (sayErrString)
 import System.Directory (doesDirectoryExist, doesFileExist, removePathForcibly)
 import System.Exit (die)
 import System.FilePath (makeRelative, takeDirectory, (<.>), (</>))
-import System.IO (hPutStrLn, stderr)
+import UnliftIO.Async (pooledForConcurrently)
 
 import qualified Data.Aeson as JSON
 import qualified Data.Map.Strict as Map
@@ -56,7 +56,7 @@ extractCmd = do
 extract :: Options -> ExtractOptions -> IO ()
 extract Options {..} ExtractOptions {..} = do
   let
-    trace n = if optVerbosity >= n then hPutStrLn stderr else const mempty
+    trace n = if optVerbosity >= n then sayErrString else const mempty
 
   -- Avoid confusing behaviour from `findProjectRoot`
   doesDirectoryExist optProjectDir
@@ -96,7 +96,7 @@ extract Options {..} ExtractOptions {..} = do
   let projectRoot = (takeDirectory . takeDirectory . takeDirectory) planLocation
 
   (parseErrors, suiteRuns) <-
-    fmap unzip . for suiteLogs $ \(suiteName, file) -> do
+    fmap unzip . pooledForConcurrently suiteLogs $ \(suiteName, file) -> do
       let fileRelative = makeRelative projectRoot file
       trace 2 $ "Examining " <> fileRelative
       (parseErrs, suiteFailures) <- parseLog file
