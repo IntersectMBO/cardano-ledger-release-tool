@@ -43,7 +43,7 @@ import qualified Data.Text.IO as T
 data ReproduceOptions = ReproduceOptions
   { optNoop :: Bool
   , optNightly :: Bool
-  , optCompilerVersion :: Maybe Version
+  , optCompilerVersions :: [Version]
   , optComponents :: [Text]
   , optWorkingDirectory :: Maybe FilePath
   , optLogsDirectory :: Maybe FilePath
@@ -67,9 +67,9 @@ reproduceCmd = do
               help "Use the nightly version of each test suite"
                 <> short 'y'
                 <> long "nightly"
-          optCompilerVersion <-
-            optional . option versionReader $
-              help "Select only failures that used compiler version VERSION"
+          optCompilerVersions <-
+            many . option versionReader $
+              help "Select only failures that used compiler version VERSION (default: all versions; repeatable)"
                 <> short 'c'
                 <> long "compiler"
                 <> metavar "VERSION"
@@ -122,7 +122,9 @@ reproduce Options {..} ReproduceOptions {..} = do
   hSetBuffering stdout LineBuffering
 
   for_ inputs $ \LogResults {..} -> do
-    when (maybe True (== makeVersion logCompilerVersion) optCompilerVersion) $ do
+    let matchCompiler =
+          null optCompilerVersions || makeVersion logCompilerVersion `elem` optCompilerVersions
+    when matchCompiler $ do
       for_ logSuiteRuns $ \SuiteRun {..} -> do
         let matchComponent =
               null optComponents || suiteName `elem` optComponents || suitePackage `elem` optComponents
