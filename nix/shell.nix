@@ -26,7 +26,7 @@ let
 
   tools = toolVariants.${ghc} // (toolOverrides.${ghc} or { });
 
-  preCommitCheck = pre-commit-hooks.lib.${pkgs.system}.run {
+  preCommitCheck = pre-commit-hooks.lib.${pkgs.stdenv.hostPlatform.system}.run {
 
     src = lib.cleanSources ../.;
 
@@ -76,10 +76,10 @@ let
     pkgs.which
   ];
 
-  linuxPkgs = lib.optionals pkgs.hostPlatform.isLinux [
+  linuxPkgs = lib.optionals pkgs.stdenv.hostPlatform.isLinux [
   ];
 
-  darwinPkgs = lib.optionals pkgs.hostPlatform.isDarwin [
+  darwinPkgs = lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
   ];
 
   exportLocaleArchive =
